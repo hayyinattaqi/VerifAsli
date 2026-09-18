@@ -18,6 +18,7 @@ The idea isn't to reward whoever finds a lost item. It's to make stolen goods ha
 2. **Attach.** Print the QR tag and stick it on the item itself.
 3. **Report if stolen.** If the item goes missing, open its page and click "Mark as Stolen." Only your wallet can do this for items you registered.
 4. **Check before buying.** Anyone can scan the tag (or open its link) to see the item's name, registration date, and whether it's been reported stolen — straight from the blockchain, no sign-up needed.
+5. **Sell it legitimately.** If you sell a clean (non-stolen) item, transfer it to the buyer's wallet from the item's page. The tag stays valid — it just now points to the new owner.
 
 ## Why the serial number isn't stored in plain text
 
@@ -64,10 +65,11 @@ verifasli/
 - **Mainnet contract address:** `0x...` <!-- fill in after deploying to BOT Chain Mainnet -->
 - **Live site:** `https://...` <!-- your custom domain -->
 
-## What's not included yet (by design)
+## What's not included (by design)
 
-This is a hackathon MVP. Left out on purpose so the one core flow — register → mark stolen → check status — stays reliable:
+This is a hackathon MVP. Left out on purpose so the core flow stays reliable and easy to demo:
 
 - No identity verification (KYC) of who's registering an item.
 - No reward or payment mechanism for finders — see "Why" above for the reasoning.
-- `transferOwnership()` exists in the contract for legitimate resale, but the frontend button for it isn't wired up yet in this build.
+- No ownership history list (past owners aren't shown, only the current one) — the `OwnershipTransferred` event is on-chain if this is added later.
+- No multi-item dashboard ("all items I own") — each item is looked up by its own link/QR code.

@@ -1,0 +1,85 @@
+[
+  {
+    "anonymous": false,
+    "inputs": [
+      { "indexed": true, "internalType": "uint256", "name": "itemId", "type": "uint256" },
+      { "indexed": true, "internalType": "address", "name": "owner", "type": "address" },
+      { "indexed": false, "internalType": "string", "name": "name", "type": "string" },
+      { "indexed": false, "internalType": "uint256", "name": "timestamp", "type": "uint256" }
+    ],
+    "name": "ItemRegistered",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      { "indexed": true, "internalType": "uint256", "name": "itemId", "type": "uint256" },
+      { "indexed": false, "internalType": "uint256", "name": "timestamp", "type": "uint256" }
+    ],
+    "name": "ItemMarkedStolen",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      { "indexed": true, "internalType": "uint256", "name": "itemId", "type": "uint256" },
+      { "indexed": true, "internalType": "address", "name": "from", "type": "address" },
+      { "indexed": true, "internalType": "address", "name": "to", "type": "address" }
+    ],
+    "name": "OwnershipTransferred",
+    "type": "event"
+  },
+  {
+    "inputs": [
+      { "internalType": "bytes32", "name": "serialHash", "type": "bytes32" },
+      { "internalType": "string", "name": "name", "type": "string" }
+    ],
+    "name": "registerItem",
+    "outputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [{ "internalType": "uint256", "name": "itemId", "type": "uint256" }],
+    "name": "reportStolen",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      { "internalType": "uint256", "name": "itemId", "type": "uint256" },
+      { "internalType": "address", "name": "newOwner", "type": "address" }
+    ],
+    "name": "transferOwnership",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [{ "internalType": "uint256", "name": "itemId", "type": "uint256" }],
+    "name": "checkStatus",
+    "outputs": [
+      { "internalType": "address", "name": "owner", "type": "address" },
+      { "internalType": "string", "name": "name", "type": "string" },
+      { "internalType": "bool", "name": "isStolen", "type": "bool" },
+      { "internalType": "uint256", "name": "registeredAt", "type": "uint256" }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "nextItemId",
+    "outputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [{ "internalType": "bytes32", "name": "", "type": "bytes32" }],
+    "name": "serialUsed",
+    "outputs": [{ "internalType": "bool", "name": "", "type": "bool" }],
+    "stateMutability": "view",
+    "type": "function"
+  }
+]

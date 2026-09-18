@@ -1,0 +1,797 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>VerifAsli — On-chain proof your stuff is yours</title>
+<meta name="description" content="Register a physical item on BOT Chain, print its tag, and let anyone check its ownership status before they buy it second-hand." />
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🏷️</text></svg>">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/5.7.2/ethers.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+
+<style>
+  :root {
+    --bg: #101314;
+    --bg-line: rgba(233, 230, 221, 0.045);
+    --surface: #1B1F21;
+    --surface-raised: #202628;
+    --ink: #ECE8DD;
+    --ink-dim: #9CA3A0;
+    --ink-faint: #666E6C;
+    --line: #33383A;
+    --line-soft: #262B2C;
+    --verified: #4C9169;
+    --verified-bg: rgba(76, 145, 105, 0.1);
+    --stolen: #C2493B;
+    --stolen-bg: rgba(194, 73, 59, 0.12);
+    --focus: #E8B04B;
+    --radius-tag: 6px 6px 16px 16px;
+  }
+
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+
+  body {
+    background-color: var(--bg);
+    background-image:
+      repeating-linear-gradient(0deg, var(--bg-line) 0px, var(--bg-line) 1px, transparent 1px, transparent 24px),
+      repeating-linear-gradient(90deg, var(--bg-line) 0px, var(--bg-line) 1px, transparent 1px, transparent 24px);
+    color: var(--ink);
+    font-family: 'IBM Plex Sans', sans-serif;
+    line-height: 1.55;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+
+  a { color: var(--focus); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  *:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+
+  h1, h2, h3 {
+    font-family: 'Fraunces', serif;
+    font-weight: 600;
+    margin: 0;
+    letter-spacing: -0.01em;
+  }
+
+  .mono { font-family: 'IBM Plex Mono', monospace; }
+
+  header.site {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 22px 28px;
+    border-bottom: 1px solid var(--line-soft);
+  }
+
+  .wordmark {
+    font-family: 'Fraunces', serif;
+    font-weight: 600;
+    font-size: 1.15rem;
+    color: var(--ink);
+  }
+  .wordmark span { color: var(--ink-dim); font-weight: 500; }
+
+  #wallet-box { display: flex; align-items: center; gap: 10px; }
+
+  button {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.85rem;
+    font-weight: 500;
+    padding: 10px 18px;
+    border-radius: 4px;
+    border: 1px solid var(--line);
+    background: var(--surface);
+    color: var(--ink);
+    cursor: pointer;
+    transition: border-color 0.15s ease, background-color 0.15s ease;
+  }
+  button:hover { border-color: var(--ink-dim); }
+  button:disabled { opacity: 0.45; cursor: not-allowed; }
+
+  button.primary {
+    background: var(--ink);
+    color: var(--bg);
+    border-color: var(--ink);
+  }
+  button.primary:hover { background: #D8D4C7; }
+
+  button.danger {
+    border-color: var(--stolen);
+    color: var(--stolen);
+    background: transparent;
+  }
+  button.danger:hover { background: var(--stolen-bg); }
+
+  #wallet-address {
+    font-size: 0.8rem;
+    color: var(--ink-dim);
+    background: var(--surface);
+    border: 1px solid var(--line-soft);
+    padding: 8px 12px;
+    border-radius: 4px;
+  }
+
+  main {
+    flex: 1;
+    display: flex;
+    justify-content: center;
+    padding: 56px 24px 80px;
+  }
+
+  .page { width: 100%; max-width: 560px; }
+
+  .intro { margin-bottom: 40px; }
+  .intro h1 { font-size: 2rem; margin-bottom: 14px; }
+  .intro p { color: var(--ink-dim); font-size: 1rem; max-width: 46ch; }
+
+  /* --- The tag itself --- */
+  .tag {
+    position: relative;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-tag);
+    padding: 42px 34px 32px;
+    margin-bottom: 28px;
+  }
+
+  .tag-hole {
+    position: absolute;
+    top: 18px;
+    left: 22px;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: var(--bg);
+    border: 3px solid var(--line);
+  }
+
+  .tag-label {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.72rem;
+    letter-spacing: 0.04em;
+    color: var(--ink-faint);
+    margin-bottom: 20px;
+    padding-left: 26px;
+  }
+
+  label {
+    display: block;
+    font-size: 0.82rem;
+    color: var(--ink-dim);
+    margin-bottom: 6px;
+    margin-top: 18px;
+  }
+  label:first-of-type { margin-top: 0; }
+
+  input[type="text"] {
+    width: 100%;
+    background: var(--bg);
+    border: 1px solid var(--line);
+    color: var(--ink);
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.92rem;
+    padding: 11px 13px;
+    border-radius: 4px;
+  }
+  input[type="text"]:focus { border-color: var(--ink-dim); }
+  input[type="text"]::placeholder { color: var(--ink-faint); }
+
+  .hint { font-size: 0.75rem; color: var(--ink-faint); margin-top: 5px; }
+
+  .tag-actions { margin-top: 24px; display: flex; gap: 10px; flex-wrap: wrap; }
+
+  .steps {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    counter-reset: step;
+  }
+  .steps li {
+    counter-increment: step;
+    display: flex;
+    gap: 16px;
+    padding: 16px 0;
+    border-top: 1px solid var(--line-soft);
+  }
+  .steps li:first-child { border-top: none; }
+  .steps li::before {
+    content: counter(step);
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.8rem;
+    color: var(--ink-faint);
+    border: 1px solid var(--line);
+    width: 26px;
+    height: 26px;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+  }
+  .steps h3 { font-size: 0.98rem; margin-bottom: 4px; }
+  .steps p { margin: 0; color: var(--ink-dim); font-size: 0.9rem; }
+
+  /* --- Result: QR + tag summary after registering --- */
+  #register-result { display: none; }
+  .qr-wrap {
+    display: flex;
+    align-items: center;
+    gap: 22px;
+    background: var(--bg);
+    border: 1px dashed var(--line);
+    border-radius: 8px;
+    padding: 20px;
+    margin-top: 20px;
+  }
+  #qr-canvas-holder { background: #fff; padding: 8px; border-radius: 4px; line-height: 0; }
+  .qr-meta { font-size: 0.85rem; color: var(--ink-dim); }
+  .qr-meta strong { color: var(--ink); }
+
+  /* --- Item status page --- */
+  .status-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 12px 0;
+    border-top: 1px solid var(--line-soft);
+    font-size: 0.88rem;
+  }
+  .status-row:first-child { border-top: none; }
+  .status-row .k { color: var(--ink-dim); }
+  .status-row .v { color: var(--ink); text-align: right; }
+
+  .stamp {
+    position: absolute;
+    top: 26px;
+    right: 24px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.78rem;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    padding: 8px 16px;
+    border-radius: 3px;
+    transform: rotate(-6deg);
+  }
+  .stamp.clean {
+    border: 2.5px dashed var(--verified);
+    color: var(--verified);
+    background: var(--verified-bg);
+  }
+  .stamp.stolen {
+    border: 2.5px solid var(--stolen);
+    color: var(--stolen);
+    background: repeating-linear-gradient(-45deg, var(--stolen-bg) 0 6px, transparent 6px 12px);
+  }
+
+  .empty-state {
+    padding: 32px;
+    text-align: center;
+    color: var(--ink-dim);
+    border: 1px solid var(--line-soft);
+    border-radius: 8px;
+    font-size: 0.92rem;
+  }
+
+  .banner {
+    font-size: 0.85rem;
+    padding: 12px 16px;
+    border-radius: 6px;
+    margin-bottom: 20px;
+    display: none;
+  }
+  .banner.error { background: var(--stolen-bg); border: 1px solid var(--stolen); color: #F0B7AF; }
+  .banner.info { background: var(--surface-raised); border: 1px solid var(--line); color: var(--ink-dim); }
+  .banner.show { display: block; }
+
+  .divider-note {
+    margin-top: 30px;
+    font-size: 0.8rem;
+    color: var(--ink-faint);
+  }
+
+  footer.site {
+    border-top: 1px solid var(--line-soft);
+    padding: 24px 28px;
+    display: flex;
+    justify-content: center;
+    gap: 8px;
+    align-items: center;
+    font-size: 0.8rem;
+    color: var(--ink-faint);
+  }
+  footer.site a { color: var(--ink-dim); }
+
+  @media (max-width: 520px) {
+    header.site { flex-direction: column; gap: 12px; align-items: flex-start; }
+    .qr-wrap { flex-direction: column; align-items: flex-start; }
+    .stamp { position: static; display: inline-block; margin-bottom: 16px; transform: rotate(-3deg); }
+  }
+</style>
+</head>
+<body>
+
+<header class="site">
+  <a href="#/" class="wordmark">VerifAsli <span>· ownership tags</span></a>
+  <div id="wallet-box">
+    <span id="wallet-address" style="display:none;"></span>
+    <button id="connect-btn" class="primary">Connect Wallet</button>
+  </div>
+</header>
+
+<main>
+  <div class="page" id="app-root">
+    <!-- rendered by router() -->
+  </div>
+</main>
+
+<footer class="site">
+  <span>Built on</span>
+  <a href="https://botchain.ai" target="_blank" rel="noopener">BOT Chain</a>
+  <span>·</span>
+  <a href="https://scan.botchain.ai" target="_blank" rel="noopener">View Explorer</a>
+</footer>
+
+<script>
+/* ======================================================================
+   CONFIG — fill in contractAddress after each deploy (testnet, then mainnet).
+   Flip `active` to "mainnet" right before your final submission.
+   ====================================================================== */
+const CONFIG = {
+  testnet: {
+    chainIdHex: "0x3C8",          // 968
+    chainId: 968,
+    chainName: "BOT Chain Testnet",
+    rpcUrl: "https://rpc.bohr.life",
+    explorer: "https://scan.bohr.life",
+    contractAddress: "0xYOUR_TESTNET_CONTRACT_ADDRESS"
+  },
+  mainnet: {
+    chainIdHex: "0x2A4",          // 677
+    chainId: 677,
+    chainName: "BOT Chain Mainnet",
+    rpcUrl: "https://rpc.botchain.ai",
+    explorer: "https://scan.botchain.ai",
+    contractAddress: "0xYOUR_MAINNET_CONTRACT_ADDRESS"
+  },
+  active: "testnet" // "testnet" while building, switch to "mainnet" before final submission
+};
+
+const NETWORK = CONFIG[CONFIG.active];
+
+const CONTRACT_ABI = [
+  "event ItemRegistered(uint256 indexed itemId, address indexed owner, string name, uint256 timestamp)",
+  "event ItemMarkedStolen(uint256 indexed itemId, uint256 timestamp)",
+  "event OwnershipTransferred(uint256 indexed itemId, address indexed from, address indexed to)",
+  "function registerItem(bytes32 serialHash, string name) returns (uint256)",
+  "function reportStolen(uint256 itemId)",
+  "function transferOwnership(uint256 itemId, address newOwner)",
+  "function checkStatus(uint256 itemId) view returns (address owner, string name, bool isStolen, uint256 registeredAt)",
+  "function nextItemId() view returns (uint256)"
+];
+
+/* ======================================================================
+   Wallet state
+   ====================================================================== */
+let browserProvider = null;   // ethers provider wrapping window.ethereum
+let signer = null;
+let connectedAddress = null;
+const readProvider = new ethers.providers.JsonRpcProvider(NETWORK.rpcUrl);
+const readContract = new ethers.Contract(NETWORK.contractAddress, CONTRACT_ABI, readProvider);
+
+function shortAddr(a) { return a.slice(0, 6) + "…" + a.slice(-4); }
+
+async function connectWallet() {
+  if (!window.ethereum) {
+    alert("No wallet found. Install MetaMask from metamask.io, then reload this page.");
+    return;
+  }
+  try {
+    browserProvider = new ethers.providers.Web3Provider(window.ethereum);
+    await window.ethereum.request({ method: "eth_requestAccounts" });
+    await ensureCorrectNetwork();
+    signer = browserProvider.getSigner();
+    connectedAddress = await signer.getAddress();
+    renderWalletBox();
+    router(); // re-render current page now that we know who's connected
+  } catch (err) {
+    console.error(err);
+    alert("Could not connect wallet: " + (err.message || err));
+  }
+}
+
+async function ensureCorrectNetwork() {
+  try {
+    await window.ethereum.request({
+      method: "wallet_switchEthereumChain",
+      params: [{ chainId: NETWORK.chainIdHex }]
+    });
+  } catch (switchError) {
+    if (switchError.code === 4902) {
+      await window.ethereum.request({
+        method: "wallet_addEthereumChain",
+        params: [{
+          chainId: NETWORK.chainIdHex,
+          chainName: NETWORK.chainName,
+          nativeCurrency: { name: "BOT", symbol: "BOT", decimals: 18 },
+          rpcUrls: [NETWORK.rpcUrl],
+          blockExplorerUrls: [NETWORK.explorer]
+        }]
+      });
+    } else {
+      throw switchError;
+    }
+  }
+}
+
+function renderWalletBox() {
+  const addrEl = document.getElementById("wallet-address");
+  const btn = document.getElementById("connect-btn");
+  if (connectedAddress) {
+    addrEl.textContent = shortAddr(connectedAddress);
+    addrEl.style.display = "inline-block";
+    btn.textContent = "Connected";
+    btn.disabled = true;
+  } else {
+    addrEl.style.display = "none";
+    btn.textContent = "Connect Wallet";
+    btn.disabled = false;
+  }
+}
+
+document.getElementById("connect-btn").addEventListener("click", connectWallet);
+
+if (window.ethereum) {
+  window.ethereum.on && window.ethereum.on("accountsChanged", () => {
+    connectedAddress = null;
+    signer = null;
+    browserProvider = null;
+    renderWalletBox();
+    router();
+  });
+
+  window.ethereum.on && window.ethereum.on("chainChanged", () => {
+    connectedAddress = null;
+    signer = null;
+    browserProvider = null;
+    renderWalletBox();
+    router();
+  });
+}
+
+/* ======================================================================
+   Router — hash-based, two routes: "#/" and "#/item/<id>"
+   ====================================================================== */
+window.addEventListener("hashchange", router);
+window.addEventListener("DOMContentLoaded", router);
+
+function router() {
+  const hash = window.location.hash || "#/";
+  const itemMatch = hash.match(/^#\/item\/(\d+)/);
+  if (itemMatch) {
+    renderItemPage(parseInt(itemMatch[1], 10));
+  } else {
+    renderHomePage();
+  }
+}
+
+/* ======================================================================
+   Home page — register a new item
+   ====================================================================== */
+function renderHomePage() {
+  const root = document.getElementById("app-root");
+  root.innerHTML = `
+    <div class="intro">
+      <h1>Tag it. Prove it's yours.</h1>
+      <p>Register a physical item on BOT Chain, print its QR tag, and stick it on the item.
+      Anyone thinking of buying it second-hand can scan the tag and check its status first —
+      no wallet needed on their end.</p>
+    </div>
+
+    <div class="banner error" id="home-error"></div>
+
+    <div class="tag">
+      <div class="tag-hole"></div>
+      <div class="tag-label">NEW REGISTRATION</div>
+
+      <label for="item-name">Item name</label>
+      <input type="text" id="item-name" placeholder="e.g. iPhone 13, blue case" maxlength="80" />
+
+      <label for="item-serial">Serial number or IMEI</label>
+      <input type="text" id="item-serial" placeholder="e.g. 359012345678901" maxlength="64" />
+      <div class="hint">Stored on-chain as a hash only — the raw number is never made public.</div>
+
+      <div class="tag-actions">
+        <button class="primary" id="register-btn">Register This Item</button>
+      </div>
+    </div>
+
+    <div id="register-result">
+      <div class="tag">
+        <div class="tag-hole"></div>
+        <div class="tag-label">TAG READY — PRINT AND ATTACH TO YOUR ITEM</div>
+        <div class="qr-wrap">
+          <div id="qr-canvas-holder"></div>
+          <div class="qr-meta">
+            <div><strong id="result-name"></strong></div>
+            <div class="mono" id="result-id" style="margin-top:4px;"></div>
+            <div style="margin-top:10px;">
+              <a id="result-link" href="#" target="_blank">Open its public status page →</a>
+            </div>
+          </div>
+        </div>
+        <div class="tag-actions">
+          <button id="download-qr-btn">Download QR Tag</button>
+        </div>
+      </div>
+    </div>
+
+    <div style="margin-top:48px;">
+      <h2 style="font-size:1.15rem; margin-bottom:8px;">How it works</h2>
+      <ul class="steps">
+        <li><div><h3>Register</h3><p>Connect your wallet, name the item, and enter its serial number or IMEI. You get back a QR tag.</p></div></li>
+        <li><div><h3>Attach</h3><p>Print the tag and stick it on the actual item — the phone case, the bike frame, the laptop lid.</p></div></li>
+        <li><div><h3>Check before buying</h3><p>Anyone scanning the tag sees its live status: clean, or reported stolen — straight from the chain, no account needed.</p></div></li>
+      </ul>
+    </div>
+  `;
+
+  document.getElementById("register-btn").addEventListener("click", handleRegister);
+}
+
+async function handleRegister() {
+  const errBox = document.getElementById("home-error");
+  errBox.classList.remove("show");
+
+  if (!signer) {
+    errBox.textContent = "Connect your wallet first.";
+    errBox.classList.add("show");
+    return;
+  }
+
+  const name = document.getElementById("item-name").value.trim();
+  const serial = document.getElementById("item-serial").value.trim();
+
+  if (!name) { errBox.textContent = "Item name is required."; errBox.classList.add("show"); return; }
+  if (!serial) { errBox.textContent = "Serial number or IMEI is required."; errBox.classList.add("show"); return; }
+
+  const btn = document.getElementById("register-btn");
+  btn.disabled = true;
+  btn.textContent = "Confirm in wallet…";
+
+  try {
+    await ensureCorrectNetwork();
+    const serialHash = ethers.utils.keccak256(ethers.utils.toUtf8Bytes(serial.toLowerCase()));
+    const writeContract = new ethers.Contract(NETWORK.contractAddress, CONTRACT_ABI, signer);
+
+    btn.textContent = "Waiting for confirmation…";
+    const tx = await writeContract.registerItem(serialHash, name);
+    const receipt = await tx.wait();
+
+    // Pull the new itemId out of the ItemRegistered event, rather than
+    // guessing it — this is the only reliable source for it.
+    let itemId = null;
+    for (const log of receipt.logs) {
+      try {
+        const parsed = writeContract.interface.parseLog(log);
+        if (parsed.name === "ItemRegistered") {
+          itemId = parsed.args.itemId.toString();
+          break;
+        }
+      } catch (_) { /* not our event, skip */ }
+    }
+
+    if (itemId === null) throw new Error("Registered, but could not read back the item ID.");
+
+    showRegisterResult(itemId, name);
+    document.getElementById("item-name").value = "";
+    document.getElementById("item-serial").value = "";
+  } catch (err) {
+    console.error(err);
+    errBox.textContent = friendlyError(err);
+    errBox.classList.add("show");
+  } finally {
+    btn.disabled = false;
+    btn.textContent = "Register This Item";
+  }
+}
+
+function showRegisterResult(itemId, name) {
+  const url = `${window.location.origin}${window.location.pathname}#/item/${itemId}`;
+  document.getElementById("result-name").textContent = name;
+  document.getElementById("result-id").textContent = `ITEM #${itemId}`;
+  document.getElementById("result-link").href = `#/item/${itemId}`;
+
+  const holder = document.getElementById("qr-canvas-holder");
+  holder.innerHTML = "";
+  new QRCode(holder, { text: url, width: 128, height: 128, colorDark: "#101314", colorLight: "#ffffff" });
+
+  document.getElementById("register-result").style.display = "block";
+  document.getElementById("download-qr-btn").onclick = () => downloadQr(itemId);
+}
+
+function downloadQr(itemId) {
+  const canvas = document.querySelector("#qr-canvas-holder canvas");
+  if (!canvas) return;
+  const link = document.createElement("a");
+  link.download = `verifasli-item-${itemId}.png`;
+  link.href = canvas.toDataURL("image/png");
+  link.click();
+}
+
+/* ======================================================================
+   Item status page — public, works with no wallet connected
+   ====================================================================== */
+async function renderItemPage(itemId) {
+  const root = document.getElementById("app-root");
+  root.innerHTML = `<div class="empty-state">Loading item #${itemId}…</div>`;
+
+  let data;
+  try {
+    data = await readContract.checkStatus(itemId);
+  } catch (err) {
+    console.error(err);
+    root.innerHTML = `<div class="empty-state">Could not reach BOT Chain right now. Check your connection and reload.</div>`;
+    return;
+  }
+
+  const [owner, name, isStolen, registeredAt] = data;
+  const notFound = owner === ethers.constants.AddressZero;
+
+  if (notFound) {
+    root.innerHTML = `
+      <div class="intro"><h1>Item not found</h1></div>
+      <div class="empty-state">No item is registered under ID #${itemId} on ${NETWORK.chainName}.</div>
+      <p class="divider-note"><a href="#/">Register a new item →</a></p>
+    `;
+    return;
+  }
+
+  const registeredDate = new Date(registeredAt.toNumber() * 1000).toLocaleDateString(undefined, { year: "numeric", month: "long", day: "numeric" });
+  const isOwner = connectedAddress && connectedAddress.toLowerCase() === owner.toLowerCase();
+
+  root.innerHTML = `
+    <div class="tag" style="margin-top:8px;">
+      <div class="stamp ${isStolen ? "stolen" : "clean"}">${isStolen ? "Stolen" : "Clean title"}</div>
+      <div class="tag-hole"></div>
+      <div class="tag-label">ITEM #${itemId}</div>
+      <h1 style="font-size:1.4rem; margin-bottom:18px; padding-right:110px;">${escapeHtml(name)}</h1>
+
+      <div class="status-row"><span class="k">Registered</span><span class="v">${registeredDate}</span></div>
+      <div class="status-row"><span class="k">Owner wallet</span><span class="v mono">${shortAddr(owner)}</span></div>
+      <div class="status-row"><span class="k">Status</span><span class="v">${isStolen ? "Reported stolen — do not buy" : "No theft reports on file"}</span></div>
+    </div>
+
+    <div class="banner error" id="item-error"></div>
+
+    <div id="owner-actions" style="display:${isOwner ? "block" : "none"};">
+      ${isStolen
+        ? `<p class="divider-note">This item is flagged stolen, so it can't be transferred. If it's recovered, its status still shows the theft report permanently.</p>`
+        : `
+          <button class="danger" id="report-stolen-btn">Mark as Stolen</button>
+
+          <div class="tag" style="margin-top:20px; padding:24px 26px;">
+            <div class="tag-label" style="padding-left:0;">TRANSFER TO A NEW OWNER</div>
+            <label for="transfer-address">New owner's wallet address</label>
+            <input type="text" id="transfer-address" placeholder="0x..." />
+            <div class="hint">Use this after a legitimate sale, once the buyer has shared their wallet address.</div>
+            <div class="tag-actions">
+              <button id="transfer-btn">Transfer Ownership</button>
+            </div>
+          </div>
+        `
+      }
+    </div>
+
+    ${!isOwner ? `<p class="divider-note">Only the registered owner's wallet can update this item's status.</p>` : ""}
+  `;
+
+  const reportBtn = document.getElementById("report-stolen-btn");
+  if (reportBtn) {
+    reportBtn.addEventListener("click", () => handleReportStolen(itemId));
+  }
+
+  const transferBtn = document.getElementById("transfer-btn");
+  if (transferBtn) {
+    transferBtn.addEventListener("click", () => handleTransferOwnership(itemId));
+  }
+}
+
+async function handleReportStolen(itemId) {
+  const errBox = document.getElementById("item-error");
+  errBox.classList.remove("show");
+
+  if (!signer) {
+    errBox.textContent = "Connect your wallet first.";
+    errBox.classList.add("show");
+    return;
+  }
+
+  const btn = document.getElementById("report-stolen-btn");
+  btn.disabled = true;
+  btn.textContent = "Confirm in wallet…";
+
+  try {
+    await ensureCorrectNetwork();
+    const writeContract = new ethers.Contract(NETWORK.contractAddress, CONTRACT_ABI, signer);
+    const tx = await writeContract.reportStolen(itemId);
+    btn.textContent = "Waiting for confirmation…";
+    await tx.wait();
+    renderItemPage(itemId); // re-fetch fresh status from chain
+  } catch (err) {
+    console.error(err);
+    errBox.textContent = friendlyError(err);
+    errBox.classList.add("show");
+    btn.disabled = false;
+    btn.textContent = "Mark as Stolen";
+  }
+}
+
+async function handleTransferOwnership(itemId) {
+  const errBox = document.getElementById("item-error");
+  errBox.classList.remove("show");
+
+  if (!signer) {
+    errBox.textContent = "Connect your wallet first.";
+    errBox.classList.add("show");
+    return;
+  }
+
+  const input = document.getElementById("transfer-address");
+  const newOwner = input.value.trim();
+
+  if (!ethers.utils.isAddress(newOwner)) {
+    errBox.textContent = "That doesn't look like a valid wallet address.";
+    errBox.classList.add("show");
+    return;
+  }
+
+  const btn = document.getElementById("transfer-btn");
+  btn.disabled = true;
+  btn.textContent = "Confirm in wallet…";
+
+  try {
+    await ensureCorrectNetwork();
+    const writeContract = new ethers.Contract(NETWORK.contractAddress, CONTRACT_ABI, signer);
+    const tx = await writeContract.transferOwnership(itemId, newOwner);
+    btn.textContent = "Waiting for confirmation…";
+    await tx.wait();
+    renderItemPage(itemId); // now shows the new owner, and hides owner-only actions from this wallet
+  } catch (err) {
+    console.error(err);
+    errBox.textContent = friendlyError(err);
+    errBox.classList.add("show");
+    btn.disabled = false;
+    btn.textContent = "Transfer Ownership";
+  }
+}
+
+/* ======================================================================
+   Helpers
+   ====================================================================== */
+function friendlyError(err) {
+  const msg = (err && err.data && err.data.message) || (err && err.message) || String(err);
+  if (msg.includes("Item already registered")) return "This serial number is already registered.";
+  if (msg.includes("Name required")) return "Item name is required.";
+  if (msg.includes("Not the owner")) return "Only this item's owner can do that.";
+  if (msg.includes("Already marked stolen")) return "This item is already marked stolen.";
+  if (msg.includes("Cannot transfer a stolen item")) return "This item is flagged stolen and can't be transferred.";
+  if (msg.includes("Invalid new owner")) return "Enter a valid wallet address to transfer to.";
+  if (msg.includes("user rejected")) return "Transaction cancelled.";
+  return "Something went wrong: " + msg;
+}
+
+function escapeHtml(str) {
+  const div = document.createElement("div");
+  div.textContent = str;
+  return div.innerHTML;
+}
+</script>
+</body>
+</html>

@@ -33,11 +33,10 @@ The raw serial/IMEI is hashed with `keccak256` in the browser before it's sent t
 ## Project structure
 
 ```
-verifasli/
-├── contracts/
-│   ├── VerifAsli.sol        # the smart contract
-│   └── VerifAsli.abi.json   # extracted ABI (for reference / Remix)
-├── index.html                # the entire frontend
+VerifAsli/
+├── VerifAsli.sol        # the smart contract
+├── VerifAsli.abi.json   # extracted ABI (for reference / Remix)
+├── index.html            # the entire frontend
 └── README.md
 ```
 
@@ -57,7 +56,7 @@ verifasli/
 | Chain ID | 968 | 677 |
 | RPC URL | `https://rpc.bohr.life` | `https://rpc.botchain.ai` |
 | Explorer | `https://scan.bohr.life` | `https://scan.botchain.ai` |
-| Get tokens | [faucet.botchain.ai/basic](https://faucet.botchain.ai/basic) | Organizer allocation (contact ahead of deploy) |
+| Get tokens | [faucet.botchain.ai/basic](https://faucet.botchain.ai/basic) | |
 
 ## Deployment
 

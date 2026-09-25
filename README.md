@@ -61,15 +61,6 @@ verifasli/
 
 ## Deployment
 
-- **Testnet contract address:** `0x...` <!-- fill in after deploying to BOT Chain Testnet -->
-- **Mainnet contract address:** `0x...` <!-- fill in after deploying to BOT Chain Mainnet -->
-- **Live site:** `https://...` <!-- your custom domain -->
-
-## What's not included (by design)
-
-This is a hackathon MVP. Left out on purpose so the core flow stays reliable and easy to demo:
-
-- No identity verification (KYC) of who's registering an item.
-- No reward or payment mechanism for finders — see "Why" above for the reasoning.
-- No ownership history list (past owners aren't shown, only the current one) — the `OwnershipTransferred` event is on-chain if this is added later.
-- No multi-item dashboard ("all items I own") — each item is looked up by its own link/QR code.
+- **Testnet contract address:** `0x8090f59c3fF48e07D5Cd5e2d94DEa4b2E14ABF24`
+- **Mainnet contract address:** `0x8090f59c3fF48e07D5Cd5e2d94DEa4b2E14ABF24` 
+- **Live site:** `https://verifasli.website` 

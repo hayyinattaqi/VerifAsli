@@ -73,11 +73,15 @@
   }
 
   .wordmark {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
     font-family: 'Fraunces', serif;
     font-weight: 600;
     font-size: 1.5rem;
     color:#E8B04B;;
   }
+  .wordmark img { width: auto; height: 36px; object-fit: contain; }
   .wordmark span { color: var(--ink-dim); font-weight: 500; }
 
   #wallet-box { display: flex; align-items: center; gap: 10px; }
@@ -348,7 +352,7 @@
 <body>
 
 <header class="site">
-  <a href="#/" class="wordmark">VerifAsli </a>
+  <a href="#/" class="wordmark"><img src="VerifAsli_logo.png" alt="" />VerifAsli</a>
   <div id="wallet-box">
     <span id="wallet-address" style="display:none;"></span>
     <button id="connect-btn" class="primary">Connect Wallet</button>
